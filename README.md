@@ -50,3 +50,8 @@ You can now access [localhost:8000/docs](http://localhost:8000/docs) to see the 
 # Prisma Commands
 
 See [https://www.prisma.io/docs/reference/api-reference/command-reference](https://www.prisma.io/docs/reference/api-reference/command-reference)
+
+# TODOs
+
+- [ ] Add Unit tests
+- [ ] Setup a temporary db for unit test
