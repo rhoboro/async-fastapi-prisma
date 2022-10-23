@@ -1,0 +1,36 @@
+{% include '_header.py.jinja' %}
+# -- template partials.py.jinja --
+from pydantic import BaseModel, Field, validator
+from . import types, models, fields, enums
+
+
+{% for name, fields in partial_models.items() %}
+class {{ name }}(BaseModel):
+    {% for field in fields.values() %}
+    {{ field.name }}:
+            {%- if field.optional -%}
+                {{ ' ' }}Optional[{{ field.type }}]
+            {% else -%}
+                {{ ' ' }}{{ field.type }}
+            {% endif %}
+    {% if not field.documentation is none %}
+    """{{ format_documentation(field.documentation) }}"""
+
+    {% endif %}
+    {% endfor %}
+
+    Config = models.Config
+
+
+{% endfor %}
+
+# users can modify relational types which are then namespaced to partials.
+# so we have to import ourselves in order to resolve forward references
+from . import partials
+
+{% for name, fields in partial_models.items() %}
+{{ name }}.update_forward_refs()
+{% endfor %}
+
+# fmt: on
+
