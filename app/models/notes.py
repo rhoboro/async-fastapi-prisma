@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel
+from pydantic.utils import GetterDict
 
 from app.prisma.models import Note as _Note
 
@@ -44,17 +45,23 @@ class Note:
         await _Note.prisma().delete(where={"id": note.id})
 
 
+class _NoteSchemaGetter(GetterDict):
+    def get(self, key: Any, default: Any = None) -> Any:
+        if key == "notebook_title":
+            if not self._obj.notebook:
+                raise Exception(f"{self._obj} must include notebook")
+            return self._obj.notebook.title
+
+        return getattr(self._obj, key, default)
+
+
 class NoteSchema(BaseModel):
     id: int
     title: str
     content: str
     notebook_id: int
-    # TODO: automatic fetch from note.notebook.title
     notebook_title: str
 
-    @classmethod
-    def from_note(cls, note: _Note) -> "NoteSchema":
-        if not note.notebook:
-            raise Exception("Unexpected State")
-
-        return NoteSchema(notebook_title=note.notebook.title, **note.dict())
+    class Config:
+        orm_mode = True
+        getter_dict = _NoteSchemaGetter
