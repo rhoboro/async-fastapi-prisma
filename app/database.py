@@ -7,11 +7,11 @@ logger = logging.getLogger(__name__)
 _db = Prisma(auto_register=True)
 
 
-async def connect():
+async def connect() -> None:
     await _db.connect()
 
 
-async def disconnect():
+async def disconnect() -> None:
     await _db.disconnect()
 
 
