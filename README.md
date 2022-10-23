@@ -1,3 +1,9 @@
+# Async Web API with FastAPI + Prisma
+
+This is a sample project of Async Web API with FastAPI + Prisma.
+
+If you want to use sqlalchemy instead of prisma, see [rhoboro/async-fastapi-sqlalchemy](https://github.com/rhoboro/async-fastapi-sqlalchemy).
+
 # Setup
 
 ## Install
