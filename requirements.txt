@@ -1,0 +1,4 @@
+fastapi
+prisma
+pydantic --no-binary=pydantic
+uvicorn[standard]
