@@ -42,8 +42,9 @@ You can now access [localhost:8000/docs](http://localhost:8000/docs) to see the 
 (venv) $ pip install -r requirements_test.txt
 (venv) $ black app
 (venv) $ isort app
-(venv) $ pyright
 (venv) $ pytest app
+(venv) $ mypy app
+(venv) $ pyright
 ```
 
 # Prisma Commands
