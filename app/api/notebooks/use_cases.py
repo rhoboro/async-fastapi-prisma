@@ -7,8 +7,8 @@ from app.models import Note, Notebook, NotebookSchema
 
 
 class CreateNotebook:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self, title: str, notes: list[int]) -> NotebookSchema:
         exist_notes = [n for n in await Note.read_by_ids(note_ids=notes)]
@@ -19,8 +19,8 @@ class CreateNotebook:
 
 
 class ReadAllNotebook:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self) -> AsyncIterator[NotebookSchema]:
         for notebook in await Notebook.read_all(include_notes=True):
@@ -28,8 +28,8 @@ class ReadAllNotebook:
 
 
 class ReadNotebook:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self, notebook_id: int) -> NotebookSchema:
         notebook = await Notebook.read_by_id(notebook_id, include_notes=True)
@@ -39,8 +39,8 @@ class ReadNotebook:
 
 
 class UpdateNotebook:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self, notebook_id: int, title: str, notes: list[int]) -> NotebookSchema:
         notebook = await Notebook.read_by_id(notebook_id, include_notes=True)
@@ -56,8 +56,8 @@ class UpdateNotebook:
 
 
 class DeleteNotebook:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self, notebook_id: int) -> None:
         notebook = await Notebook.read_by_id(notebook_id)

@@ -7,8 +7,8 @@ from app.models import Note, Notebook, NoteSchema
 
 
 class CreateNote:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self, notebook_id: int, title: str, content: str) -> NoteSchema:
         notebook = await Notebook.read_by_id(notebook_id)
@@ -19,8 +19,8 @@ class CreateNote:
 
 
 class ReadAllNote:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self) -> AsyncIterator[NoteSchema]:
         for note in await Note.read_all():
@@ -28,8 +28,8 @@ class ReadAllNote:
 
 
 class ReadNote:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self, note_id: int) -> NoteSchema:
         note = await Note.read_by_id(note_id)
@@ -39,8 +39,8 @@ class ReadNote:
 
 
 class UpdateNote:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self, note_id: int, notebook_id: int, title: str, content: str) -> NoteSchema:
         note = await Note.read_by_id(note_id)
@@ -60,8 +60,8 @@ class UpdateNote:
 
 
 class DeleteNote:
-    def __init__(self, session: Prisma = Depends(get_db)) -> None:
-        self.async_session = session
+    def __init__(self, db: Prisma = Depends(get_db)) -> None:
+        self.db = db
 
     async def execute(self, note_id: int) -> None:
         note = await Note.read_by_id(note_id)
