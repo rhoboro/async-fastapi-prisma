@@ -9,6 +9,13 @@ settings = Settings()
 app = FastAPI(title="async-fastapi-prisma")
 app.include_router(api_router, prefix="/api")
 
+try:
+    from app.graphql.main import router as graphql_router
+
+    app.include_router(graphql_router)
+except ModuleNotFoundError:
+    pass
+
 
 @app.on_event("startup")
 async def startup() -> None:

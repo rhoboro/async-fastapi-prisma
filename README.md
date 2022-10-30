@@ -1,4 +1,4 @@
-# Async Web API with FastAPI + Prisma
+# Async Web API with FastAPI + Prisma + GraphQL
 
 This is a sample project of Async Web API with FastAPI + Prisma.
 
@@ -40,6 +40,32 @@ Datasource "db": PostgreSQL database "postgres", schema "public" at "localhost:5
 ```
 
 You can now access [localhost:8000/docs](http://localhost:8000/docs) to see the API documentation.
+
+## GraphQL
+
+This application has additional endpoint /graphql.
+If installed graphene, you can also access [localhost:8000/graphql](localhost:8000/graphql).
+
+```shell
+(venv) $ pip install graphene
+(venv) $ DATABASE_URL=postgresql://postgres:password@localhost:5432 APP_CONFIG_FILE=local uvicorn app.main:app --reload-dir app
+```
+
+```shell
+$ curl -X POST localhost:8000/graphql -H 'content-type=application/json' --data '{"query": "query { notebook(id:1) { id title notes { title notebookId }}}"}'
+{
+  "notebook": {
+    "id": "1",
+    "title": "string",
+    "notes": [
+      {
+        "title": "string",
+        "notebookId": 1
+      }
+    ]
+  }
+}
+```
 
 
 # Test
