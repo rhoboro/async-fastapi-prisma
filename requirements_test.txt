@@ -1,4 +1,5 @@
 black
+eqassertions
 isort
 pyright
 pytest

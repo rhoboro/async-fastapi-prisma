@@ -16,7 +16,11 @@ from typing import (
     Optional,
     Iterable,
     Iterator,
+    Sequence,
     Callable,
+    ClassVar,
+    NoReturn,
+    TypeVar,
     Generic,
     Mapping,
     Tuple,
@@ -35,7 +39,9 @@ from typing_extensions import TypedDict, Literal
 LiteralString = str
 # -- template engine/http.py.jinja --
 
+import json
 import logging
+from datetime import timedelta
 
 from . import utils, errors
 from .abstract import AbstractEngine
@@ -62,46 +68,73 @@ class HTTPEngine(AbstractEngine):
         headers: Optional[Dict[str, str]] = None,
         **kwargs: Any,
     ) -> None:
+        super().__init__()
         self.url = url
         self.session = HTTP(**kwargs)
         self.headers = headers if headers is not None else {}
 
-    def __del__(self) -> None:
-        self.stop()
-
-    def close(self) -> None:
+    def close(self, *, timeout: Optional[timedelta] = None) -> None:
         pass
 
-    async def aclose(self) -> None:
+    async def aclose(self, *, timeout: Optional[timedelta] = None) -> None:
         await self._close_session()
 
     async def _close_session(self) -> None:
         if self.session and not self.session.closed:
             await self.session.close()
 
-    async def request(self, method: Method, path: str, *, content: Any = None) -> Any:
+    # TODO: improve return types
+    async def request(
+        self,
+        method: Method,
+        path: str,
+        *,
+        content: Any = None,
+        headers: Optional[Dict[str, str]] = None,
+        parse_response: bool = True,
+    ) -> Any:
         if self.url is None:
             raise errors.NotConnectedError('Not connected to the query engine')
 
         kwargs = {
             'headers': {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
                 **self.headers,
             }
         }
+
+        if parse_response:
+            kwargs['headers']['Accept'] = 'application/json'
+
+        if headers is not None:
+            kwargs['headers'].update(headers)
 
         if content is not None:
             kwargs['content'] = content
 
         url = self.url + path
-        log.debug('Sending %s request to %s with content: %s', method, url, content)
+        log.debug('Sending %s request to %s', method, url)
+        log.debug('Request headers: %s', kwargs['headers'])
+        log.debug('Request content: %s', content)
 
         resp = await self.session.request(method, url, **kwargs)
+        log.debug('%s %s returned status %s', method, url, resp.status)
 
         if 300 > resp.status >= 200:
+            # In certain cases we just want to return the response content as-is.
+            #
+            # This is useful for metrics which can be returned in a Prometheus format
+            # which is incompatible with JSON.
+            if not parse_response:
+                text = await resp.text()
+                log.debug('%s %s returned text: %s', method, url, text)
+                return text
+
             response = await resp.json()
             log.debug('%s %s returned %s', method, url, response)
+
+            if isinstance(response, str):
+                # workaround for https://github.com/prisma/prisma-engines/pull/4246
+                response = json.loads(response)
 
             errors_data = response.get('errors')
             if errors_data:

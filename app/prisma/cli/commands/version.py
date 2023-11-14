@@ -38,9 +38,10 @@ def cli(output_json: bool) -> None:
         'prisma': config.prisma_version,
         'prisma client python': __version__,
         'platform': binary_platform(),
-        'engines': config.engine_version,
-        'install path': str(Path(__file__).resolve().parent.parent.parent),
+        'expected engine version': config.expected_engine_version,
         'installed extras': installed,
+        'install path': str(Path(__file__).resolve().parent.parent.parent),
+        'binary cache dir': str(config.binary_cache_dir),
     }
 
     if output_json:

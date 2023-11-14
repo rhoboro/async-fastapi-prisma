@@ -1,4 +1,5 @@
 fastapi
 prisma
-pydantic --no-binary=pydantic
+pydantic
+pydantic-settings
 uvicorn[standard]

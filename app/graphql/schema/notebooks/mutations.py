@@ -28,7 +28,7 @@ class CreateNotebooksMutation(graphene.Mutation):
 
 class UpdateNotebooksMutation(graphene.Mutation):
     class Arguments:
-        id = graphene.Int(required=True, name="id")
+        id_ = graphene.Int(required=True, name="id")
         title = graphene.String(required=True)
         notes = graphene.NonNull(graphene.List(graphene.NonNull(graphene.Int)))
 
