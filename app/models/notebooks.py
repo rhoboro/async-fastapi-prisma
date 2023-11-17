@@ -1,7 +1,5 @@
-from typing import Any, Optional
-
-from pydantic import BaseModel
-from pydantic.utils import GetterDict
+from pydantic import BaseModel, ConfigDict
+from pydantic.functional_validators import field_validator
 
 from app.models.notes import NoteSchema
 from app.prisma.models import Note as _Note
@@ -19,7 +17,7 @@ class Notebook:
             return await _Notebook.prisma().find_many(include={"notes": False})
 
     @classmethod
-    async def read_by_id(cls, id_: int, include_notes: bool = False) -> Optional[_Notebook]:
+    async def read_by_id(cls, id_: int, include_notes: bool = False) -> _Notebook | None:
         return await _Notebook.prisma().find_unique(
             where={"id": id_}, include={"notes": include_notes}
         )
@@ -50,21 +48,16 @@ class Notebook:
         await _Notebook.prisma().delete(where={"id": notebook.id})
 
 
-class _NotebookSchemaGetter(GetterDict):
-    def get(self, key: Any, default: Any = None) -> Any:
-        if key == "notes":
-            if not self._obj.notes:
-                return []
-            return [NoteSchema.from_orm(note) for note in self._obj.notes]
-
-        return getattr(self._obj, key, default)
-
-
 class NotebookSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     notes: list[NoteSchema]
 
-    class Config:
-        orm_mode = True
-        getter_dict = _NotebookSchemaGetter
+    @field_validator("notes", mode="before")
+    @classmethod
+    def none_notes(cls, v: list[NoteSchema] | None) -> list[NoteSchema]:
+        if v is None:
+            return []
+        return v

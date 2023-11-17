@@ -16,7 +16,11 @@ from typing import (
     Optional,
     Iterable,
     Iterator,
+    Sequence,
     Callable,
+    ClassVar,
+    NoReturn,
+    TypeVar,
     Generic,
     Mapping,
     Tuple,
@@ -34,6 +38,8 @@ from typing_extensions import TypedDict, Literal
 
 LiteralString = str
 # -- template fields.py.jinja --
+from ._compat import PYDANTIC_V2, CoreSchema, core_schema
+
 import base64
 from pydantic import Json as _PydanticJson
 
@@ -120,6 +126,17 @@ class Base64:
         """Encode bytes into valid Base64"""
         return cls(base64.b64encode(value))
 
+    @classmethod
+    def fromb64(cls, value: Union[str, bytes]) -> 'Base64':
+        """
+        Create an instance of the `Base64` class from data that has already
+        been encoded into a valid base 64 structure.
+        """
+        if isinstance(value, bytes):
+            return cls(value)
+
+        return cls(value.encode(BASE64_ENCODING))
+
     def decode(self) -> bytes:
         """Decode from Base64 to the original bytes object"""
         return base64.b64decode(self._raw)
@@ -140,15 +157,40 @@ class Base64:
         return self.decode().decode(encoding)
 
     # Support OpenAPI schema generation
-    @classmethod
-    def __modify_schema__(cls, field_schema: Dict[str, object]) -> None:
-        field_schema['type'] = 'string'
-        field_schema['format'] = 'byte'
+    if PYDANTIC_V2:
+        @classmethod
+        def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: Any) -> Any:
+            json_schema = handler(core_schema)
+            json_schema = handler.resolve_ref_schema(json_schema)
+            json_schema['type'] = 'string'
+            json_schema['format'] = 'byte'
+            return json_schema
+    else:
+        @classmethod
+        def __modify_schema__(cls, field_schema: Dict[str, object]) -> None:
+            field_schema['type'] = 'string'
+            field_schema['format'] = 'byte'
 
     # Support converting objects into Base64 at the Pydantic level
-    @classmethod
-    def __get_validators__(cls) -> Iterator[object]:
-        yield cls._validate
+    if PYDANTIC_V2:
+        @classmethod
+        def __get_pydantic_core_schema__(
+            cls,
+            source_type: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> CoreSchema:
+            return core_schema.no_info_before_validator_function(
+                cls._validate,
+                schema=core_schema.any_schema(),
+                serialization=core_schema.plain_serializer_function_ser_schema(
+                    lambda instance: str(instance)
+                )
+            )
+    else:
+        @classmethod
+        def __get_validators__(cls) -> Iterator[object]:
+            yield cls._validate
 
     @classmethod
     def _validate(cls, value: object) -> 'Base64':

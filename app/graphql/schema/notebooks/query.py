@@ -24,7 +24,7 @@ class ListNotebooksQuery(graphene.ObjectType):
     all_notebooks = graphene.NonNull(graphene.List(graphene.NonNull(Notebook)))
 
     @staticmethod
-    async def resolve_all_notebook(parent: Any, info: graphene.ResolveInfo) -> Notebook:
+    async def resolve_all_notebook(parent: Any, info: graphene.ResolveInfo) -> list[Notebook]:
         notebooks = await models.Notebook.read_all(include_notes=True)
         return [
             Notebook(

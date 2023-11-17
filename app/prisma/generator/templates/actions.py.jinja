@@ -1,14 +1,19 @@
+{% set annotations = true %}
 {% include '_header.py.jinja' %}
-{% from '_utils.py.jinja' import is_async, maybe_async_def, maybe_await, methods, operations, recursive_types, active_provider with context %}
+{% from '_utils.py.jinja' import is_async, maybe_async_def, maybe_await, recursive_types, active_provider with context %}
 # -- template actions.py.jinja --
+from typing import TypeVar
 import warnings
 
-from . import types, errors
-from ._types import BaseModelT
-
+from . import types, errors, bases
+from ._compat import model_parse
 
 if TYPE_CHECKING:
     from .client import Client
+    from .bases import _PrismaModel
+
+
+_PrismaModelT = TypeVar('_PrismaModelT', bound='_PrismaModel')
 
 {# TODO: support sampling combined unique constraints #}
 {% macro sample_where_unique(model) %}
@@ -35,13 +40,8 @@ if TYPE_CHECKING:
 {% set RawModelType = "prisma.models.%s" % model.name %}
 {% set include_doc = 'Specifies which relations should be loaded on the returned %s model' % model.name %}
 
-{% if recursive_types %}
-{% set ModelType = 'BaseModelT' %}
-class {{ model.name }}Actions(Generic[BaseModelT]):
-{% else %}
-{% set ModelType = "'models.%s'" % model.name %}
-class {{ model.name }}Actions:
-{% endif %}
+{% set ModelType = '_PrismaModelT' %}
+class {{ model.name }}Actions(Generic[{{ ModelType }}]):
     __slots__ = (
         '_client',
         '_model',
@@ -172,15 +172,14 @@ class {{ model.name }}Actions:
         ```
         """
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.create }}',
-            method='{{ methods.create }}',
-            model='{{ model.name }}',
+            method='create',
+            model=self._model,
             arguments={
                 'data': data,
                 'include': include,
             },
         )
-        return self._model.parse_obj(resp['data']['result'])
+        return model_parse(self._model, resp['data']['result'])
 
     {{ maybe_async_def }}create_many(
         self,
@@ -237,9 +236,8 @@ class {{ model.name }}Actions:
             raise errors.UnsupportedDatabaseError('sqlite', 'create_many()')
 
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.create_many }}',
-            method='{{ methods.create_many }}',
-            model='{{ model.name }}',
+            method='create_many',
+            model=self._model,
             arguments={
                 'data': data,
                 'skipDuplicates': skip_duplicates,
@@ -286,9 +284,8 @@ class {{ model.name }}Actions:
         """
         try:
             resp = {{ maybe_await }}self._client._execute(
-                operation='{{ operations.delete }}',
-                method='{{ methods.delete }}',
-                model='{{ model.name }}',
+                method='delete',
+                model=self._model,
                 arguments={
                     'where': where,
                     'include': include,
@@ -297,7 +294,7 @@ class {{ model.name }}Actions:
         except errors.RecordNotFoundError:
             return None
 
-        return self._model.parse_obj(resp['data']['result'])
+        return model_parse(self._model, resp['data']['result'])
 
     {{ maybe_async_def }}find_unique(
         self,
@@ -336,9 +333,8 @@ class {{ model.name }}Actions:
         ```
         """
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.find_unique }}',
-            method='{{ methods.find_unique }}',
-            model='{{ model.name }}',
+            method='find_unique',
+            model=self._model,
             arguments={
                 'where': where,
                 'include': include,
@@ -347,7 +343,53 @@ class {{ model.name }}Actions:
         result = resp['data']['result']
         if result is None:
             return None
-        return self._model.parse_obj(result)
+        return model_parse(self._model, result)
+
+    {{ maybe_async_def }}find_unique_or_raise(
+        self,
+        where: types.{{ model.name }}WhereUniqueInput,
+        include: Optional[types.{{ model.name}}Include] = None
+    ) -> {{ ModelType }}:
+        """Find a unique {{ model.name }} record. Raises `RecordNotFoundError` if no record is found.
+
+        Parameters
+        ----------
+        where
+            {{ model.name }} filter to find the record, must be unique
+        include
+            {{ include_doc }}
+
+        Returns
+        -------
+        {{ RawModelType }}
+            The found {{ model.name }} record
+
+        Raises
+        ------
+        prisma.errors.RecordNotFoundError
+            No record was found
+        {{ base_error_doc }}
+        {{ query_error_doc }}
+
+        Example
+        -------
+        ```py
+        {{ model.name.lower() }} = {{ maybe_await }}{{ model.name }}.prisma().find_unique_or_raise(
+            where={
+                {{ sample_where_unique(model) }}
+            },
+        )
+        ```
+        """
+        resp = {{ maybe_await }}self._client._execute(
+            method='find_unique_or_raise',
+            model=self._model,
+            arguments={
+                'where': where,
+                'include': include,
+            },
+        )
+        return model_parse(self._model, resp['data']['result'])
 
     {{ maybe_async_def }}find_many(
         self,
@@ -357,6 +399,7 @@ class {{ model.name }}Actions:
         cursor: Optional[types.{{ model.name }}WhereUniqueInput] = None,
         include: Optional[types.{{ model.name }}Include] = None,
         order: Optional[Union[types.{{ model.name }}OrderByInput, List[types.{{ model.name }}OrderByInput]]] = None,
+        distinct: Optional[List[types.{{ model.name }}ScalarFieldKeys]] = None,
     ) -> List[{{ ModelType }}]:
         """Find multiple {{ model.name }} records.
 
@@ -376,6 +419,8 @@ class {{ model.name }}Actions:
             {{ include_doc }}
         order
             Order the returned {{ model.name }} records by any field
+        distinct
+            Filter {{ model.name }} records by either a single distinct field or distinct combinations of fields
 
         Returns
         -------
@@ -403,9 +448,8 @@ class {{ model.name }}Actions:
         ```
         """
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.find_many }}',
-            method='{{ methods.find_many }}',
-            model='{{ model.name }}',
+            method='find_many',
+            model=self._model,
             arguments={
                 'take': take,
                 'skip': skip,
@@ -413,9 +457,10 @@ class {{ model.name }}Actions:
                 'order_by': order,
                 'cursor': cursor,
                 'include': include,
+                'distinct': distinct,
             },
         )
-        return [self._model.parse_obj(r) for r in resp['data']['result']]
+        return [model_parse(self._model, r) for r in resp['data']['result']]
 
     {{ maybe_async_def }}find_first(
         self,
@@ -424,6 +469,7 @@ class {{ model.name }}Actions:
         cursor: Optional[types.{{ model.name }}WhereUniqueInput] = None,
         include: Optional[types.{{ model.name }}Include] = None,
         order: Optional[Union[types.{{ model.name }}OrderByInput, List[types.{{ model.name }}OrderByInput]]] = None,
+        distinct: Optional[List[types.{{ model.name }}ScalarFieldKeys]] = None,
     ) -> Optional[{{ ModelType }}]:
         """Find a single {{ model.name }} record.
 
@@ -439,6 +485,8 @@ class {{ model.name }}Actions:
             {{ include_doc }}
         order
             Order the returned {{ model.name }} records by any field
+        distinct
+            Filter {{ model.name }} records by either a single distinct field or distinct combinations of fields
 
         Returns
         -------
@@ -465,21 +513,86 @@ class {{ model.name }}Actions:
         ```
         """
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.find_first }}',
-            method='{{ methods.find_first }}',
-            model='{{ model.name }}',
+            method='find_first',
+            model=self._model,
             arguments={
                 'skip': skip,
                 'where': where,
                 'order_by': order,
                 'cursor': cursor,
-                'include': include
+                'include': include,
+                'distinct': distinct,
             },
         )
         result = resp['data']['result']
         if result is None:
             return None
-        return self._model.parse_obj(result)
+
+        return model_parse(self._model, result)
+
+    {{ maybe_async_def }}find_first_or_raise(
+        self,
+        skip: Optional[int] = None,
+        where: Optional[types.{{ model.name }}WhereInput] = None,
+        cursor: Optional[types.{{ model.name }}WhereUniqueInput] = None,
+        include: Optional[types.{{ model.name }}Include] = None,
+        order: Optional[Union[types.{{ model.name }}OrderByInput, List[types.{{ model.name }}OrderByInput]]] = None,
+        distinct: Optional[List[types.{{ model.name }}ScalarFieldKeys]] = None,
+    ) -> {{ ModelType }}:
+        """Find a single {{ model.name }} record. Raises `RecordNotFoundError` if no record was found.
+
+        Parameters
+        ----------
+        skip
+            Ignore the first N records
+        where
+            {{ model.name }} filter to select the record
+        cursor
+            Specifies the position in the list to start returning results from, (typically an ID field)
+        include
+            {{ include_doc }}
+        order
+            Order the returned {{ model.name }} records by any field
+        distinct
+            Filter {{ model.name }} records by either a single distinct field or distinct combinations of fields
+
+        Returns
+        -------
+        {{ RawModelType }}
+            The first {{ model.name }} record found, matching the given arguments
+
+        Raises
+        ------
+        prisma.errors.RecordNotFoundError
+            No record was found
+        {{ base_error_doc }}
+
+        Example
+        -------
+        ```py
+        {% set field = model.sampler().get_field() %}
+        # find the second {{ model.name }} record ordered by the {{ field.name }} field
+        {{ model.name.lower() }} = {{ maybe_await }}{{ model.name }}.prisma().find_first_or_raise(
+            skip=1,
+            order={
+                '{{ field.name }}': 'desc',
+            },
+        )
+        ```
+        """
+        resp = {{ maybe_await }}self._client._execute(
+            method='find_first_or_raise',
+            model=self._model,
+            arguments={
+                'skip': skip,
+                'where': where,
+                'order_by': order,
+                'cursor': cursor,
+                'include': include,
+                'distinct': distinct,
+            },
+        )
+        return model_parse(self._model, resp['data']['result'])
 
     {{ maybe_async_def }}update(
         self,
@@ -524,9 +637,8 @@ class {{ model.name }}Actions:
         """
         try:
             resp = {{ maybe_await }}self._client._execute(
-                operation='{{ operations["update"] }}',
-                method='{{ methods["update"] }}',
-                model='{{ model.name }}',
+                method='update',
+                model=self._model,
                 arguments={
                     'data': data,
                     'where': where,
@@ -536,7 +648,7 @@ class {{ model.name }}Actions:
         except errors.RecordNotFoundError:
             return None
 
-        return self._model.parse_obj(resp['data']['result'])
+        return model_parse(self._model, resp['data']['result'])
 
     {{ maybe_async_def }}upsert(
         self,
@@ -610,9 +722,8 @@ class {{ model.name }}Actions:
         ```
         """
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.upsert }}',
-            method='{{ methods.upsert }}',
-            model='{{ model.name }}',
+            method='upsert',
+            model=self._model,
             arguments={
                 'where': where,
                 'include': include,
@@ -620,7 +731,7 @@ class {{ model.name }}Actions:
                 'update': data.get('update'),
             },
         )
-        return self._model.parse_obj(resp['data']['result'])
+        return model_parse(self._model, resp['data']['result'])
 
     {{ maybe_async_def }}update_many(
         self,
@@ -659,9 +770,8 @@ class {{ model.name }}Actions:
         ```
         """
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.update_many }}',
-            method='{{ methods.update_many }}',
-            model='{{ model.name }}',
+            method='update_many',
+            model=self._model,
             arguments={'data': data, 'where': where,},
             root_selection=['count'],
         )
@@ -766,9 +876,8 @@ class {{ model.name }}Actions:
             {% endraw %}
 
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.count }}',
-            method='{{ methods.count }}',
-            model='{{ model.name }}',
+            method='count',
+            model=self._model,
             arguments={
                 'take': take,
                 'skip': skip,
@@ -811,9 +920,8 @@ class {{ model.name }}Actions:
         ```
         """
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.delete_many }}',
-            method='{{ methods.delete_many }}',
-            model='{{ model.name }}',
+            method='delete_many',
+            model=self._model,
             arguments={'where': where},
             root_selection=['count'],
         )
@@ -930,9 +1038,8 @@ class {{ model.name }}Actions:
                 root_selection.append(_select_fields('_count', count))
 
         resp = {{ maybe_await }}self._client._execute(
-            operation='{{ operations.group_by }}',
-            method='{{ methods.group_by }}',
-            model='{{ model.name }}',
+            method='group_by',
+            model=self._model,
             arguments={
                 'by': by,
                 'take': take,
@@ -959,4 +1066,3 @@ def _select_fields(root: str, select: Mapping[str, Any]) -> str:
 
 
 from . import models
-

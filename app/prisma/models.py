@@ -16,7 +16,11 @@ from typing import (
     Optional,
     Iterable,
     Iterator,
+    Sequence,
     Callable,
+    ClassVar,
+    NoReturn,
+    TypeVar,
     Generic,
     Mapping,
     Tuple,
@@ -38,62 +42,21 @@ import os
 import logging
 import inspect
 import warnings
-from pydantic import BaseConfig, BaseModel, Field, validator
+from collections import OrderedDict
 
-from . import types, enums, errors, fields
-from ._types import BaseModelT, FuncType
+from pydantic import BaseModel, Field
+
+from . import types, enums, errors, fields, bases
+from ._types import FuncType
+from ._compat import model_rebuild, field_validator
 from .builder import serialize_base64
 from .generator import partial_models_ctx, PartialModelField
-
-
-class Config(BaseConfig):
-    use_enum_values: bool = True
-    arbitrary_types_allowed: bool = True
-    allow_population_by_field_name: bool = True
-    json_encoders: Dict[Any, FuncType] = {
-        fields.Base64: serialize_base64,
-    }
 
 
 log: logging.Logger = logging.getLogger(__name__)
 _created_partial_types: Set[str] = set()
 
-# packages that implicitly subclass models
-# this should not raise any warnings as users
-# of these packages cannot do anything about it
-_implicit_subclass_packages: Set[str] = {
-    'fastapi',
-}
-
-
-def _maybe_warn_subclassing(new_model: str, base_model: str, *, stacklevel: int = 3) -> None:
-    # at least 3 frames are guaranteed to exist if we are being called from __init_subclass__
-    # stack: 1 = __init_subclass__, 2 = abc, 3 = <caller>
-    try:
-        frame = inspect.stack()[stacklevel]
-        module = inspect.getmodule(frame[0])
-        if module is not None:
-            name, *_ = module.__name__.split('.')
-            if name in _implicit_subclass_packages:
-                return
-    except Exception as exc:
-        # disabling subclass warnings depending on the caller module is not a mission critical
-        # feature, users can disable these warnings themselves
-        # https://github.com/RobertCraigie/prisma-client-py/issues/278#issuecomment-1031421561
-        log.debug('Ignoring exception encountered during stack inspection check: %s', str(exc))
-
-    message = (
-        'Subclassing models while using pseudo-recursive types may cause unexpected '
-        'errors when static type checking;\n'
-        'You can disable this warning by generating fully recursive types: \n'
-        'https://prisma-client-py.readthedocs.io/en/stable/reference/config/#recursive\n'
-        'or if that is not possible you can pass warn_subclass=False e.g.\n'
-        f'  class {new_model}(prisma.models.{base_model}, warn_subclass=False):'
-    )
-    warnings.warn(message, errors.UnsupportedSubclassWarning, stacklevel=4)
-
-
-class Note(BaseModel):
+class Note(bases.BaseNote):
     """Represents a Note record"""
 
     created_at: datetime.datetime
@@ -102,26 +65,23 @@ class Note(BaseModel):
     title: _str
     content: _str
     notebook_id: _int
-    notebook: Optional['models.Notebook']
-
-    Config = Config
-
-    @classmethod
-    def prisma(cls) -> 'actions.NoteActions':
-        from .client import get_client
-
-        return actions.NoteActions(get_client(), cls)
+    notebook: Optional['models.Notebook'] = None
 
     # take *args and **kwargs so that other metaclasses can define arguments
     def __init_subclass__(
         cls,
         *args: Any,
-        warn_subclass: bool = True,
+        warn_subclass: Optional[bool] = None,
         **kwargs: Any,
     ) -> None:
         super().__init_subclass__()
-        if warn_subclass:
-            _maybe_warn_subclassing(cls.__name__, 'Note', stacklevel=3)
+        if warn_subclass is not None:
+            warnings.warn(
+                'The `warn_subclass` argument is deprecated as it is no longer necessary and will be removed in the next release',
+                DeprecationWarning,
+                stacklevel=3,
+            )
+
 
     @staticmethod
     def create_partial(
@@ -157,33 +117,34 @@ class Note(BaseModel):
                 'exclude_relational_fields and relations are mutually exclusive'
             )
 
-        fields: Dict['types.NoteKeys', PartialModelField] = {}
+        fields: Dict['types.NoteKeys', PartialModelField] = OrderedDict()
 
         try:
             if include:
                 for field in include:
-                    fields[field] = _Note_fields[field]
+                    fields[field] = _Note_fields[field].copy()
             elif exclude:
                 for field in exclude:
                     if field not in _Note_fields:
                         raise KeyError(field)
 
                 fields = {
-                    key: data
+                    key: data.copy()
                     for key, data in _Note_fields.items()
                     if key not in exclude
                 }
             else:
-                fields = _Note_fields.copy()
+                fields = {
+                    key: data.copy()
+                    for key, data in _Note_fields.items()
+                }
 
             if required:
                 for field in required:
-                    fields[field] = fields[field].copy()
                     fields[field]['optional'] = False
 
             if optional:
                 for field in optional:
-                    fields[field] = fields[field].copy()
                     fields[field]['optional'] = True
 
             if exclude_relational_fields:
@@ -219,41 +180,40 @@ class Note(BaseModel):
             ) from None
 
         models = partial_models_ctx.get()
-
-        # mypy does not like this as we are assigning a
-        # Dict[Literal[str]] to a Dict[str] but this is fine
-        models[name] = fields  # type: ignore[assignment]
-        partial_models_ctx.set(models)
+        models.append(
+            {
+                'name': name,
+                'fields': cast(Mapping[str, PartialModelField], fields),
+                'from_model': 'Note',
+            }
+        )
         _created_partial_types.add(name)
 
 
-class Notebook(BaseModel):
+class Notebook(bases.BaseNotebook):
     """Represents a Notebook record"""
 
     created_at: datetime.datetime
     updated_at: datetime.datetime
     id: _int
     title: _str
-    notes: Optional[List['models.Note']]
-
-    Config = Config
-
-    @classmethod
-    def prisma(cls) -> 'actions.NotebookActions':
-        from .client import get_client
-
-        return actions.NotebookActions(get_client(), cls)
+    notes: Optional[List['models.Note']] = None
 
     # take *args and **kwargs so that other metaclasses can define arguments
     def __init_subclass__(
         cls,
         *args: Any,
-        warn_subclass: bool = True,
+        warn_subclass: Optional[bool] = None,
         **kwargs: Any,
     ) -> None:
         super().__init_subclass__()
-        if warn_subclass:
-            _maybe_warn_subclassing(cls.__name__, 'Notebook', stacklevel=3)
+        if warn_subclass is not None:
+            warnings.warn(
+                'The `warn_subclass` argument is deprecated as it is no longer necessary and will be removed in the next release',
+                DeprecationWarning,
+                stacklevel=3,
+            )
+
 
     @staticmethod
     def create_partial(
@@ -289,33 +249,34 @@ class Notebook(BaseModel):
                 'exclude_relational_fields and relations are mutually exclusive'
             )
 
-        fields: Dict['types.NotebookKeys', PartialModelField] = {}
+        fields: Dict['types.NotebookKeys', PartialModelField] = OrderedDict()
 
         try:
             if include:
                 for field in include:
-                    fields[field] = _Notebook_fields[field]
+                    fields[field] = _Notebook_fields[field].copy()
             elif exclude:
                 for field in exclude:
                     if field not in _Notebook_fields:
                         raise KeyError(field)
 
                 fields = {
-                    key: data
+                    key: data.copy()
                     for key, data in _Notebook_fields.items()
                     if key not in exclude
                 }
             else:
-                fields = _Notebook_fields.copy()
+                fields = {
+                    key: data.copy()
+                    for key, data in _Notebook_fields.items()
+                }
 
             if required:
                 for field in required:
-                    fields[field] = fields[field].copy()
                     fields[field]['optional'] = False
 
             if optional:
                 for field in optional:
-                    fields[field] = fields[field].copy()
                     fields[field]['optional'] = True
 
             if exclude_relational_fields:
@@ -351,11 +312,13 @@ class Notebook(BaseModel):
             ) from None
 
         models = partial_models_ctx.get()
-
-        # mypy does not like this as we are assigning a
-        # Dict[Literal[str]] to a Dict[str] but this is fine
-        models[name] = fields  # type: ignore[assignment]
-        partial_models_ctx.set(models)
+        models.append(
+            {
+                'name': name,
+                'fields': cast(Mapping[str, PartialModelField], fields),
+                'from_model': 'Notebook',
+            }
+        )
         _created_partial_types.add(name)
 
 
@@ -363,98 +326,114 @@ class Notebook(BaseModel):
 _Note_relational_fields: Set[str] = {
         'notebook',
     }
-_Note_fields: Dict['types.NoteKeys', PartialModelField] = {
-    'created_at': {
-        'name': 'created_at',
-        'is_list': False,
-        'optional': False,
-        'type': 'datetime.datetime',
-        'documentation': None,
-    },
-    'updated_at': {
-        'name': 'updated_at',
-        'is_list': False,
-        'optional': False,
-        'type': 'datetime.datetime',
-        'documentation': None,
-    },
-    'id': {
-        'name': 'id',
-        'is_list': False,
-        'optional': False,
-        'type': '_int',
-        'documentation': None,
-    },
-    'title': {
-        'name': 'title',
-        'is_list': False,
-        'optional': False,
-        'type': '_str',
-        'documentation': None,
-    },
-    'content': {
-        'name': 'content',
-        'is_list': False,
-        'optional': False,
-        'type': '_str',
-        'documentation': None,
-    },
-    'notebook_id': {
-        'name': 'notebook_id',
-        'is_list': False,
-        'optional': False,
-        'type': '_int',
-        'documentation': None,
-    },
-    'notebook': {
-        'name': 'notebook',
-        'is_list': False,
-        'optional': True,
-        'type': 'models.Notebook',
-        'documentation': None,
-    },
-}
+_Note_fields: Dict['types.NoteKeys', PartialModelField] = OrderedDict(
+    [
+        ('created_at', {
+            'name': 'created_at',
+            'is_list': False,
+            'optional': False,
+            'type': 'datetime.datetime',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('updated_at', {
+            'name': 'updated_at',
+            'is_list': False,
+            'optional': False,
+            'type': 'datetime.datetime',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('id', {
+            'name': 'id',
+            'is_list': False,
+            'optional': False,
+            'type': '_int',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('title', {
+            'name': 'title',
+            'is_list': False,
+            'optional': False,
+            'type': '_str',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('content', {
+            'name': 'content',
+            'is_list': False,
+            'optional': False,
+            'type': '_str',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('notebook_id', {
+            'name': 'notebook_id',
+            'is_list': False,
+            'optional': False,
+            'type': '_int',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('notebook', {
+            'name': 'notebook',
+            'is_list': False,
+            'optional': True,
+            'type': 'models.Notebook',
+            'is_relational': True,
+            'documentation': None,
+        }),
+    ],
+)
 
 _Notebook_relational_fields: Set[str] = {
         'notes',
     }
-_Notebook_fields: Dict['types.NotebookKeys', PartialModelField] = {
-    'created_at': {
-        'name': 'created_at',
-        'is_list': False,
-        'optional': False,
-        'type': 'datetime.datetime',
-        'documentation': None,
-    },
-    'updated_at': {
-        'name': 'updated_at',
-        'is_list': False,
-        'optional': False,
-        'type': 'datetime.datetime',
-        'documentation': None,
-    },
-    'id': {
-        'name': 'id',
-        'is_list': False,
-        'optional': False,
-        'type': '_int',
-        'documentation': None,
-    },
-    'title': {
-        'name': 'title',
-        'is_list': False,
-        'optional': False,
-        'type': '_str',
-        'documentation': None,
-    },
-    'notes': {
-        'name': 'notes',
-        'is_list': True,
-        'optional': True,
-        'type': 'List[\'models.Note\']',
-        'documentation': None,
-    },
-}
+_Notebook_fields: Dict['types.NotebookKeys', PartialModelField] = OrderedDict(
+    [
+        ('created_at', {
+            'name': 'created_at',
+            'is_list': False,
+            'optional': False,
+            'type': 'datetime.datetime',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('updated_at', {
+            'name': 'updated_at',
+            'is_list': False,
+            'optional': False,
+            'type': 'datetime.datetime',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('id', {
+            'name': 'id',
+            'is_list': False,
+            'optional': False,
+            'type': '_int',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('title', {
+            'name': 'title',
+            'is_list': False,
+            'optional': False,
+            'type': '_str',
+            'is_relational': False,
+            'documentation': None,
+        }),
+        ('notes', {
+            'name': 'notes',
+            'is_list': True,
+            'optional': True,
+            'type': 'List[\'models.Note\']',
+            'is_relational': True,
+            'documentation': None,
+        }),
+    ],
+)
 
 
 
@@ -463,5 +442,5 @@ _Notebook_fields: Dict['types.NotebookKeys', PartialModelField] = {
 from . import models, actions
 
 # required to support relationships between models
-Note.update_forward_refs()
-Notebook.update_forward_refs()
+model_rebuild(Note)
+model_rebuild(Notebook)

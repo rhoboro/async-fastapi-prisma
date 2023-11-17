@@ -11,7 +11,7 @@ If you want to use sqlalchemy instead of prisma, see [rhoboro/async-fastapi-sqla
 ```shell
 $ python3 -m venv venv --upgrade-deps
 $ . venv/bin/activate
-(venv) $ pip install -r requirements.lock --no-binary pydantic --use-pep517 --no-cache --use-feature=no-binary-enable-wheel-cache
+(venv) $ pip install -r requirements.lock
 ```
 
 ## Setup a database and create tables
@@ -22,21 +22,21 @@ $ . venv/bin/activate
   -e PGDATA=/var/lib/postgresql/data/pgdata \
   -v $(pwd)/pgdata:/var/lib/postgresql/data \
   -p 5432:5432 \
-  postgres:14.4-alpine
+  postgres:16.0-alpine
 
 (venv) $ DATABASE_URL=postgresql://postgres:password@localhost:5432 prisma db push
 Prisma schema loaded from schema.prisma
 Datasource "db": PostgreSQL database "postgres", schema "public" at "localhost:5432"
 
-🚀  Your database is now in sync with your schema. Done in 638ms
+🚀  Your database is now in sync with your Prisma schema. Done in 69ms
 
-✔ Generated Prisma Client Python (v0.7.0) to ./app/prisma in 135ms
+✔ Generated Prisma Client Python (v0.11.0) to ./app/prisma in 98ms
 ```
 
 # Run
 
 ```shell
-(venv) $ DATABASE_URL=postgresql://postgres:password@localhost:5432 APP_CONFIG_FILE=local uvicorn app.main:app --reload-dir app
+(venv) $ APP_CONFIG_FILE=local uvicorn app.main:app --reload-dir app
 ```
 
 You can now access [localhost:8000/docs](http://localhost:8000/docs) to see the API documentation.
@@ -48,7 +48,7 @@ If installed graphene, you can also access [localhost:8000/graphql](localhost:80
 
 ```shell
 (venv) $ pip install graphene
-(venv) $ DATABASE_URL=postgresql://postgres:password@localhost:5432 APP_CONFIG_FILE=local uvicorn app.main:app --reload-dir app
+(venv) $ APP_CONFIG_FILE=local uvicorn app.main:app --reload-dir app
 ```
 
 ```shell

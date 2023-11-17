@@ -16,7 +16,11 @@ from typing import (
     Optional,
     Iterable,
     Iterator,
+    Sequence,
     Callable,
+    ClassVar,
+    NoReturn,
+    TypeVar,
     Generic,
     Mapping,
     Tuple,
@@ -48,6 +52,8 @@ from .utils import _NoneType
 
 SortMode = Literal['default', 'insensitive']
 SortOrder = Literal['asc', 'desc']
+
+MetricsFormat = Literal['json', 'prometheus']
 
 
 class _DatasourceOverrideOptional(TypedDict, total=False):
@@ -1399,6 +1405,7 @@ class FindManyNoteArgsFromNote(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     include: 'NoteIncludeFromNoteRecursive1'
 
 
@@ -1409,6 +1416,7 @@ class FindManyNoteArgsFromNoteRecursive1(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     include: 'NoteIncludeFromNoteRecursive2'
 
 
@@ -1419,6 +1427,7 @@ class FindManyNoteArgsFromNoteRecursive2(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     include: 'NoteIncludeFromNoteRecursive3'
 
 
@@ -1429,6 +1438,7 @@ class FindManyNoteArgsFromNoteRecursive3(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     include: 'NoteIncludeFromNoteRecursive4'
 
 
@@ -1439,6 +1449,7 @@ class FindManyNoteArgsFromNoteRecursive4(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     
     
 
@@ -1499,6 +1510,7 @@ class FindManyNotebookArgsFromNote(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     include: 'NotebookIncludeFromNotebookRecursive1'
 
 
@@ -1509,6 +1521,7 @@ class FindManyNotebookArgsFromNoteRecursive1(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     include: 'NotebookIncludeFromNotebookRecursive2'
 
 
@@ -1519,6 +1532,7 @@ class FindManyNotebookArgsFromNoteRecursive2(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     include: 'NotebookIncludeFromNotebookRecursive3'
 
 
@@ -1529,6 +1543,7 @@ class FindManyNotebookArgsFromNoteRecursive3(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     include: 'NotebookIncludeFromNotebookRecursive4'
 
 
@@ -1539,6 +1554,7 @@ class FindManyNotebookArgsFromNoteRecursive4(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     
 
 
@@ -2051,6 +2067,7 @@ class FindManyNoteArgsFromNotebook(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     include: 'NoteIncludeFromNoteRecursive1'
 
 
@@ -2061,6 +2078,7 @@ class FindManyNoteArgsFromNotebookRecursive1(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     include: 'NoteIncludeFromNoteRecursive2'
 
 
@@ -2071,6 +2089,7 @@ class FindManyNoteArgsFromNotebookRecursive2(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     include: 'NoteIncludeFromNoteRecursive3'
 
 
@@ -2081,6 +2100,7 @@ class FindManyNoteArgsFromNotebookRecursive3(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     include: 'NoteIncludeFromNoteRecursive4'
 
 
@@ -2091,6 +2111,7 @@ class FindManyNoteArgsFromNotebookRecursive4(TypedDict, total=False):
     order_by: Union['NoteOrderByInput', List['NoteOrderByInput']]
     where: 'NoteWhereInput'
     cursor: 'NoteWhereUniqueInput'
+    distinct: List['NoteScalarFieldKeys']
     
     
 
@@ -2151,6 +2172,7 @@ class FindManyNotebookArgsFromNotebook(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     include: 'NotebookIncludeFromNotebookRecursive1'
 
 
@@ -2161,6 +2183,7 @@ class FindManyNotebookArgsFromNotebookRecursive1(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     include: 'NotebookIncludeFromNotebookRecursive2'
 
 
@@ -2171,6 +2194,7 @@ class FindManyNotebookArgsFromNotebookRecursive2(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     include: 'NotebookIncludeFromNotebookRecursive3'
 
 
@@ -2181,6 +2205,7 @@ class FindManyNotebookArgsFromNotebookRecursive3(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     include: 'NotebookIncludeFromNotebookRecursive4'
 
 
@@ -2191,6 +2216,7 @@ class FindManyNotebookArgsFromNotebookRecursive4(TypedDict, total=False):
     order_by: Union['NotebookOrderByInput', List['NotebookOrderByInput']]
     where: 'NotebookWhereInput'
     cursor: 'NotebookWhereUniqueInput'
+    distinct: List['NotebookScalarFieldKeys']
     
 
 

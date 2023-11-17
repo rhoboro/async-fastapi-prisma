@@ -16,7 +16,11 @@ from typing import (
     Optional,
     Iterable,
     Iterator,
+    Sequence,
     Callable,
+    ClassVar,
+    NoReturn,
+    TypeVar,
     Generic,
     Mapping,
     Tuple,
@@ -34,8 +38,8 @@ from typing_extensions import TypedDict, Literal
 
 LiteralString = str
 # -- template partials.py.jinja --
-from pydantic import BaseModel, Field, validator
-from . import types, models, fields, enums
+from . import types, fields, enums, actions, models, bases
+from ._compat import model_rebuild, field_validator
 
 
 

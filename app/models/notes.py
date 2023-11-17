@@ -1,7 +1,4 @@
-from typing import Any, Optional
-
-from pydantic import BaseModel
-from pydantic.utils import GetterDict
+from pydantic import BaseModel, ConfigDict
 
 from app.prisma.models import Note as _Note
 
@@ -12,7 +9,7 @@ class Note:
         return await _Note.prisma().find_many(include={"notebook": True})
 
     @classmethod
-    async def read_by_id(cls, id_: int) -> Optional[_Note]:
+    async def read_by_id(cls, id_: int) -> _Note | None:
         return await _Note.prisma().find_unique(where={"id": id_}, include={"notebook": True})
 
     @classmethod
@@ -45,16 +42,6 @@ class Note:
         await _Note.prisma().delete(where={"id": note.id})
 
 
-class _NoteSchemaGetter(GetterDict):
-    def get(self, key: Any, default: Any = None) -> Any:
-        if key == "notebook_title":
-            if not self._obj.notebook:
-                raise Exception(f"{self._obj} must include notebook")
-            return self._obj.notebook.title
-
-        return getattr(self._obj, key, default)
-
-
 class NoteSchema(BaseModel):
     id: int
     title: str
@@ -62,6 +49,4 @@ class NoteSchema(BaseModel):
     notebook_id: int
     notebook_title: str
 
-    class Config:
-        orm_mode = True
-        getter_dict = _NoteSchemaGetter
+    model_config = ConfigDict(from_attributes=True)
