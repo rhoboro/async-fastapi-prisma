@@ -1,14 +1,13 @@
-from typing import Any, Optional
+from typing import Any
 
 import graphene
-from graphql import GraphQLError
 
-from app import models
+from app.use_cases.notebooks import CreateNotebook, DeleteNotebook, UpdateNotebook
 
 from .schema import Notebook
 
 
-class CreateNotebooksMutation(graphene.Mutation):
+class CreateNotebookMutation(graphene.Mutation):
     class Arguments:
         title = graphene.String(required=True)
         notes = graphene.NonNull(graphene.List(graphene.NonNull(graphene.Int)))
@@ -16,9 +15,10 @@ class CreateNotebooksMutation(graphene.Mutation):
     Output = graphene.NonNull(Notebook)
 
     @staticmethod
-    async def mutate(parent: Any, title: str, notes: list[int]) -> Notebook:
-        notes_ = await models.Note.read_by_ids(notes)
-        notebook = await models.Notebook.create(title=title, notes=notes_)
+    async def mutate(
+        parent: Any, info: graphene.ResolveInfo, title: str, notes: list[int]
+    ) -> Notebook:
+        notebook = await CreateNotebook(info.context["db"]).execute(title, notes)
         return Notebook(
             id=notebook.id,
             title=notebook.title,
@@ -26,7 +26,7 @@ class CreateNotebooksMutation(graphene.Mutation):
         )
 
 
-class UpdateNotebooksMutation(graphene.Mutation):
+class UpdateNotebookMutation(graphene.Mutation):
     class Arguments:
         id_ = graphene.Int(required=True, name="id")
         title = graphene.String(required=True)
@@ -35,13 +35,10 @@ class UpdateNotebooksMutation(graphene.Mutation):
     Output = graphene.NonNull(Notebook)
 
     @staticmethod
-    async def mutate(parent: Any, id_: int, title: str, notes: list[int]) -> Notebook:
-        exist = await models.Notebook.read_by_id(id_, include_notes=False)
-        if not exist:
-            raise GraphQLError("NotFound")
-
-        notes_ = await models.Note.read_by_ids(notes)
-        notebook = await models.Notebook.update(exist, title, notes_)
+    async def mutate(
+        parent: Any, info: graphene.ResolveInfo, id_: int, title: str, notes: list[int]
+    ) -> Notebook:
+        notebook = await UpdateNotebook(info.context["db"]).execute(id_, title, notes)
         return Notebook(
             id=notebook.id,
             title=notebook.title,
@@ -49,23 +46,18 @@ class UpdateNotebooksMutation(graphene.Mutation):
         )
 
 
-class DeleteNotebooksMutation(graphene.Mutation):
+class DeleteNotebookMutation(graphene.Mutation):
     class Arguments:
         id_ = graphene.Int(required=True, name="id")
 
     Output = Notebook
 
     @staticmethod
-    async def mutate(parent: Any, id_: int) -> Optional[Notebook]:
-        notebook = await models.Notebook.read_by_id(id_)
-        if not notebook:
-            return
-
-        await models.Notebook.delete(notebook)
-        return None
+    async def mutate(parent: Any, info: graphene.ResolveInfo, id_: int) -> None:
+        return await DeleteNotebook(info.context["db"]).execute(id_)
 
 
 class NotebooksMutation(graphene.ObjectType):
-    create_notebook = CreateNotebooksMutation.Field()
-    update_notebook = UpdateNotebooksMutation.Field()
-    delete_notebook = DeleteNotebooksMutation.Field()
+    create_notebook = CreateNotebookMutation.Field()
+    update_notebook = UpdateNotebookMutation.Field()
+    delete_notebook = DeleteNotebookMutation.Field()

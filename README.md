@@ -52,14 +52,15 @@ If installed graphene, you can also access [localhost:8000/graphql](localhost:80
 ```
 
 ```shell
-$ curl -X POST localhost:8000/graphql -H 'content-type=application/json' --data '{"query": "query { notebook(id:1) { id title notes { title notebookId }}}"}'
+(venv) $ pip install 'gql[aiohttp]'
+(venv) $ echo 'query { notebook(id:1) { id title notes { title notebookId }}}' | gql-cli  http://localhost:8000/graphql | jq
 {
   "notebook": {
     "id": "1",
-    "title": "string",
+    "title": "test notebook",
     "notes": [
       {
-        "title": "string",
+        "title": "test note",
         "notebookId": 1
       }
     ]

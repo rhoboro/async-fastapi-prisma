@@ -1,6 +1,10 @@
+from typing import ForwardRef, Optional
+
 from pydantic import BaseModel, ConfigDict
 
 from app.prisma.models import Note as _Note
+
+NotebookSchema = ForwardRef("NotebookSchema")
 
 
 class Note:
@@ -47,6 +51,6 @@ class NoteSchema(BaseModel):
     title: str
     content: str
     notebook_id: int
-    notebook_title: str
+    notebook: Optional[NotebookSchema]  # type: ignore
 
     model_config = ConfigDict(from_attributes=True)

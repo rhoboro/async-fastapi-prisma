@@ -2,7 +2,7 @@ from typing import Any
 
 import graphene
 
-from app import models
+from app.use_cases.notebooks import ReadAllNotebook, ReadNotebook
 
 from .schema import Notebook
 
@@ -12,7 +12,7 @@ class GetNotebookQuery(graphene.ObjectType):
 
     @staticmethod
     async def resolve_notebook(parent: Any, info: graphene.ResolveInfo, id_: int) -> Notebook:
-        notebook = await models.Notebook.read_by_id(id_, include_notes=True)
+        notebook = await ReadNotebook(info.context["db"]).execute(id_)
         return Notebook(
             id=notebook.id,
             title=notebook.title,
@@ -24,13 +24,12 @@ class ListNotebooksQuery(graphene.ObjectType):
     all_notebooks = graphene.NonNull(graphene.List(graphene.NonNull(Notebook)))
 
     @staticmethod
-    async def resolve_all_notebook(parent: Any, info: graphene.ResolveInfo) -> list[Notebook]:
-        notebooks = await models.Notebook.read_all(include_notes=True)
+    async def resolve_all_notebooks(parent: Any, info: graphene.ResolveInfo) -> list[Notebook]:
         return [
             Notebook(
                 id=notebook.id,
                 title=notebook.title,
                 notes=notebook.notes,
             )
-            for notebook in notebooks
+            async for notebook in ReadAllNotebook(info.context["db"]).execute()
         ]

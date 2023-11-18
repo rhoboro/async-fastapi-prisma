@@ -1,6 +1,7 @@
 black
 eqassertions
 isort
+mypy
 pyright
 pytest
 pytest-asyncio

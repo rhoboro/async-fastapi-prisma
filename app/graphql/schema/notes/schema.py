@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Any
 
 import graphene
 
-from app import models
+from app.use_cases.notebooks import ReadNotebook
 
 if TYPE_CHECKING:
     from ..notebooks import Notebook
@@ -21,10 +21,7 @@ class Note(graphene.ObjectType):
 
         notebook = getattr(parent, "notebook", None)
         if not notebook:
-            notebook = await models.Notebook.read_by_id(
-                parent.notebook_id,
-                include_notes=True,
-            )
+            notebook = await ReadNotebook(info.context["db"]).execute(parent.notebook_id)
 
         return Notebook(
             id=notebook.id,

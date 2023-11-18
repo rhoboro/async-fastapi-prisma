@@ -21,6 +21,10 @@ non_interactive = true
 module = "app.tests.*"
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = "app.prisma.*"
+ignore_errors = true
+
 [tool.black]
 line-length = 100
 exclude = '''

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Path, Request
 
 from app.models import NoteSchema
+from app.use_cases.notes import CreateNote, DeleteNote, ReadAllNote, ReadNote, UpdateNote
 
 from .schema import (
     CreateNoteRequest,
@@ -10,7 +11,6 @@ from .schema import (
     UpdateNoteRequest,
     UpdateNoteResponse,
 )
-from .use_cases import CreateNote, DeleteNote, ReadAllNote, ReadNote, UpdateNote
 
 router = APIRouter(prefix="/notes")
 

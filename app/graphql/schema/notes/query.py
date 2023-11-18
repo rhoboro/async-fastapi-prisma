@@ -2,7 +2,7 @@ from typing import Any
 
 import graphene
 
-from app import models
+from app.use_cases.notes import ReadAllNote, ReadNote
 
 from .schema import Note
 
@@ -12,7 +12,7 @@ class GetNoteQuery(graphene.ObjectType):
 
     @staticmethod
     async def resolve_note(parent: Any, info: graphene.ResolveInfo, id_: int) -> Note:
-        note = await models.Note.read_by_id(id_)
+        note = await ReadNote(info.context["db"]).execute(id_)
         return Note(
             id=note.id,
             title=note.title,
@@ -26,7 +26,6 @@ class ListNotesQuery(graphene.ObjectType):
 
     @staticmethod
     async def resolve_all_notes(parent: Any, info: graphene.ResolveInfo) -> list[Note]:
-        notes = await models.Note.read_all()
         return [
             Note(
                 id=note.id,
@@ -35,5 +34,5 @@ class ListNotesQuery(graphene.ObjectType):
                 notebook_id=note.notebook_id,
                 notebook=note.notebook,
             )
-            for note in notes
+            async for note in ReadAllNote(info.context["db"]).execute()
         ]

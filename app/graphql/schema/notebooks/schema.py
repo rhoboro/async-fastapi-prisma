@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any
 import graphene
 from graphql import GraphQLError
 
-from app import models
+from app.use_cases.notebooks import ReadNotebook
 
 if TYPE_CHECKING:
     from ..notes import Note
@@ -20,7 +20,7 @@ class Notebook(graphene.ObjectType):
 
         notes = getattr(parent, "notes", None)
         if not notes:
-            notebook = await models.Notebook.read_by_id(parent.id, include_notes=True)
+            notebook = await ReadNotebook(info.context["db"]).execute(parent.id)
             if not notebook:
                 raise GraphQLError("NotFound")
             notes = notebook.notes
